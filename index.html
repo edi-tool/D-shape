@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>算数プリント用 プロ仕様作図ツール</title>
+  <title>算数プリント用 プロ仕様作図ツール - Ver.2</title>
   <style>
     :root {
       --bg-color: #f1f3f5;
@@ -10,6 +10,7 @@
       --border-color: #dee2e6;
       --primary: #007bff;
       --accent: #28a745;
+      --grid-color: rgba(0,0,0,0.1);
     }
     body {
       margin: 0;
@@ -48,13 +49,14 @@
       border-radius: 6px;
       padding: 2px;
       margin-bottom: 15px;
+      flex-wrap: wrap;
     }
     .mode-tab div {
-      flex: 1;
+      flex: 1 1 40%;
       text-align: center;
-      padding: 8px;
+      padding: 6px;
       cursor: pointer;
-      font-size: 13px;
+      font-size: 12px;
       border-radius: 4px;
     }
     .mode-tab div.active {
@@ -79,7 +81,6 @@
     }
     button:hover { background: #f8f9fa; border-color: #adb5bd; }
     button.primary { background: var(--primary); color: white; border: none; font-weight: bold; width: 100%; padding: 12px; }
-    button.danger { color: #dc3545; border-color: #dc3545; width: 100%; margin-top: 10px; }
     
     .prop-group {
       margin-bottom: 10px;
@@ -89,11 +90,19 @@
       font-size: 12px;
     }
     .prop-group input, .prop-group select {
-      width: 70px;
+      width: 80px;
       padding: 4px;
       border: 1px solid var(--border-color);
       border-radius: 4px;
     }
+
+    /* ツールバー (Undo/Redo等) */
+    .toolbar {
+      display: flex;
+      gap: 5px;
+      margin-bottom: 10px;
+    }
+    .toolbar button { flex: 1; padding: 5px; }
 
     #canvas-container {
       flex: 1;
@@ -107,23 +116,27 @@
     svg#workspace {
       background: #fff;
       box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    }
+    /* 方眼紙の背景設定 */
+    svg#workspace.grid-enabled {
       background-image: 
-        linear-gradient(to right, rgba(0,0,0,0.1) 1px, transparent 1px),
-        linear-gradient(to bottom, rgba(0,0,0,0.1) 1px, transparent 1px);
-      background-size: 40px 40px;
+        linear-gradient(to right, var(--grid-color) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--grid-color) 1px, transparent 1px);
+      background-size: 20px 20px; /* 5mm方眼を意識 */
     }
     
     .selected-rect { stroke: var(--primary); fill: rgba(0, 123, 255, 0.1); stroke-dasharray: 4; }
     .shape-group.selected > .main-path { stroke: var(--primary); stroke-width: 3px; }
     .handle { fill: white; stroke: var(--primary); stroke-width: 2px; cursor: nwse-resize; }
     .handle:hover { fill: var(--primary); }
+    .rot-handle { fill: var(--accent); stroke: white; cursor: crosshair; }
     
-    /* ショートカットのヒント */
     .shortcut-hint {
       font-size: 11px;
       color: #888;
       text-align: center;
       margin-top: 10px;
+      line-height: 1.4;
     }
   </style>
 </head>
@@ -131,50 +144,80 @@
 
   <div id="sidebar">
     <div class="panel-section">
+      <div class="toolbar">
+        <button onclick="undo()" title="Ctrl+Z">↩️ 戻る</button>
+        <button onclick="redo()" title="Ctrl+Y">↪️ やり直し</button>
+        <button onclick="deleteSelected()" title="Delete">🗑️ 削除</button>
+      </div>
+      <div class="prop-group">
+        <label><input type="checkbox" id="snap-toggle" checked onchange="updateSnap()"> グリッドに合わせる</label>
+      </div>
+    </div>
+
+    <div class="panel-section">
       <div class="mode-tab">
         <div id="tab-2d" class="active" onclick="switchMode('2d')">平面(2D)</div>
         <div id="tab-3d" onclick="switchMode('3d')">立体(3D)</div>
+        <div id="tab-net" onclick="switchMode('net')">展開図</div>
+        <div id="tab-sym" onclick="switchMode('sym')">補助記号</div>
       </div>
 
-      <div id="tools-2d">
-        <h3>基本図形</h3>
+      <div id="tools-2d" class="tool-panel">
         <div class="btn-grid">
           <button onclick="addShape('rect')">長方形</button>
           <button onclick="addShape('triangle')">三角形</button>
           <button onclick="addShape('circle')">円</button>
           <button onclick="addShape('parallelogram')">平行四辺形</button>
+          <button onclick="addShape('trapezoid')">台形</button>
+          <button onclick="addShape('sector')">扇形</button>
         </div>
       </div>
 
-      <div id="tools-3d" style="display:none">
-        <h3>立体投影法</h3>
+      <div id="tools-3d" class="tool-panel" style="display:none">
         <div class="prop-group">
           <label>表示形式</label>
           <select id="proj-type" onchange="updateProjection()">
-            <option value="cabinet">キャビネット図 (45°)</option>
-            <option value="iso">等角投影図 (30°)</option>
+            <option value="cabinet">キャビネット図</option>
+            <option value="iso">等角投影図</option>
           </select>
         </div>
         <div class="btn-grid">
           <button onclick="addShape('cuboid')">直方体</button>
           <button onclick="addShape('cylinder')">円柱</button>
+          <button onclick="addShape('cone')">円錐</button>
+        </div>
+      </div>
+
+      <div id="tools-net" class="tool-panel" style="display:none">
+        <div class="btn-grid">
+          <button onclick="addShape('net_cuboid')">直方体の展開図</button>
+          <button onclick="addShape('net_cylinder')">円柱の展開図</button>
+        </div>
+      </div>
+
+      <div id="tools-sym" class="tool-panel" style="display:none">
+        <div class="btn-grid">
+          <button onclick="addShape('rightAngle')">直角マーク ∟</button>
+          <button onclick="addShape('angleArc')">角度の弧 ⌒</button>
+          <button onclick="addShape('tickMark')">等長マーク //</button>
+          <button onclick="addShape('text')">🔤 テキスト</button>
         </div>
       </div>
     </div>
 
     <div class="panel-section">
-      <h3>便利ツール</h3>
       <button onclick="addLengthLabels()" style="width:100%; color:var(--accent); border-color:var(--accent)">
         📏 選択した図形に長さを表示
       </button>
-      <button onclick="addShape('text')" style="width:100%; margin-top:5px;">🔤 自由テキスト追加</button>
     </div>
 
     <div class="panel-section" id="properties-panel" style="flex: 1;">
       <h3>プロパティ</h3>
       <div id="prop-controls"></div>
       <div class="shortcut-hint">
-        💡 Ctrl+Cでコピー、Ctrl+Vでペースト<br>Deleteキーで削除が可能です。
+        Shiftキー + ドラッグで水平/垂直移動<br>
+        Ctrl+Cでコピー、Ctrl+Vでペースト<br>
+        Ctrl+Zで戻る、Ctrl+Yでやり直し
       </div>
     </div>
 
@@ -184,7 +227,7 @@
   </div>
 
   <div id="canvas-container">
-    <svg id="workspace" width="800" height="600" xmlns="http://www.w3.org/2000/svg">
+    <svg id="workspace" class="grid-enabled" width="800" height="600" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <pattern id="hatch" width="8" height="8" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
           <line x1="0" y1="0" x2="0" y2="8" stroke="#333" stroke-width="1" />
@@ -197,20 +240,24 @@
 
 <script>
 const S = 40; // 1cm = 40px
-const SNAP = 10;
+let SNAP = 20; // 5mm方眼(20px)にスナップ
+let snapEnabled = true;
+
 let shapes = [];
 let selectedIds = [];
 let currentMode = '2d';
 let projection = 'cabinet';
 let shapeCounter = 0;
-
-// クリップボード用の変数（コピーした図形のデータを保持）
 let clipboard = [];
 
+// Undo / Redo 用の履歴配列
+let history = [];
+let historyIndex = -1;
+
 let isMouseDown = false;
-let isDragging = false;
 let dragMode = 'none';
 let dragStart = { x: 0, y: 0 };
+let originalStates = []; // ドラッグ開始時の各図形の位置と状態
 let activeHandle = null;
 let selectionRect = null;
 
@@ -218,36 +265,86 @@ const workspace = document.getElementById('workspace');
 const mainLayer = document.getElementById('main-layer');
 const uiLayer = document.getElementById('ui-layer');
 
+// --- 履歴管理 (Undo / Redo) ---
+function saveState() {
+    // 現在の状態より先の履歴を削除（やり直し中に新しい操作をした場合）
+    if (historyIndex < history.length - 1) {
+        history = history.slice(0, historyIndex + 1);
+    }
+    history.push(JSON.stringify(shapes));
+    historyIndex++;
+}
+
+function undo() {
+    if (historyIndex > 0) {
+        historyIndex--;
+        shapes = JSON.parse(history[historyIndex]);
+        selectedIds = [];
+        render();
+    }
+}
+
+function redo() {
+    if (historyIndex < history.length - 1) {
+        historyIndex++;
+        shapes = JSON.parse(history[historyIndex]);
+        selectedIds = [];
+        render();
+    }
+}
+
+// 初期状態を保存
+saveState();
+
+// --- UI・モード切替 ---
 function switchMode(mode) {
     currentMode = mode;
-    document.getElementById('tab-2d').className = mode === '2d' ? 'active' : '';
-    document.getElementById('tab-3d').className = mode === '3d' ? 'active' : '';
-    document.getElementById('tools-2d').style.display = mode === '2d' ? 'block' : 'none';
-    document.getElementById('tools-3d').style.display = mode === '3d' ? 'block' : 'none';
+    ['2d', '3d', 'net', 'sym'].forEach(m => {
+        document.getElementById(`tab-${m}`).className = mode === m ? 'active' : '';
+        document.getElementById(`tools-${m}`).style.display = mode === m ? 'block' : 'none';
+    });
 }
 
-function updateProjection() {
-    projection = document.getElementById('proj-type').value;
-    render();
+function updateProjection() { projection = document.getElementById('proj-type').value; render(); }
+function updateSnap() { snapEnabled = document.getElementById('snap-toggle').checked; workspace.classList.toggle('grid-enabled', snapEnabled); }
+
+function getStrokeStyle(s) {
+    let style = `stroke-width="${s.strokeWidth || 2}" `;
+    if (s.lineType === 'dashed') style += `stroke-dasharray="8,6" `;
+    if (s.lineType === 'dotted') style += `stroke-dasharray="2,4" stroke-linecap="round" `;
+    return style;
 }
 
+// --- 図形の追加 ---
 function addShape(type) {
     const id = 's' + (shapeCounter++);
     const shape = {
-        id, type, x: 200, y: 200, rot: 0, fill: 'none', dashed: false,
-        w: 4, h: 3, d: 2, r: 1.5, angle: 90, topX: 0, text: 'テキスト', fontSize: 18
+        id, type, x: 200, y: 200, rot: 0, fill: 'none', 
+        strokeWidth: 2, lineType: 'solid', color: '#000000',
+        w: 4, h: 3, d: 2, r: 1.5, angle: 90, topX: 0, w2: 2,
+        text: 'テキスト', fontSize: 18
     };
+    
+    // タイプ別の初期値調整
+    if(type === 'net_cuboid') { shape.w=2; shape.h=3; shape.d=1.5; }
+    if(type === 'net_cylinder') { shape.w=4; shape.r=1; }
+    if(type === 'rightAngle') { shape.w=0.5; shape.h=0.5; }
+    if(type === 'angleArc') { shape.r=1; shape.angle=45; }
+    
     shapes.push(shape);
     selectedIds = [id];
+    saveState();
     render();
 }
 
+// --- 描画ロジック ---
 function render() {
     mainLayer.innerHTML = '';
     uiLayer.innerHTML = '';
 
     shapes.forEach(shape => {
         const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        // SVGのグループのtransformで位置と回転を制御
         g.setAttribute('transform', `translate(${shape.x},${shape.y}) rotate(${shape.rot})`);
         g.setAttribute('class', 'shape-group' + (selectedIds.includes(shape.id) ? ' selected' : ''));
         g.setAttribute('data-id', shape.id);
@@ -259,27 +356,69 @@ function render() {
             renderHandles(shape);
         }
     });
-
     renderPropertyEditor();
 }
 
 function getShapePath(s) {
-    const stroke = "#000";
+    const stroke = s.color || "#000";
     const fill = s.fill === 'hatch' ? 'url(#hatch)' : (s.fill === 'none' ? 'none' : s.fill);
-    const dash = s.dashed ? 'stroke-dasharray="5,5"' : '';
+    const lineStyle = getStrokeStyle(s);
     
+    // 基本的な変数の準備
+    const w = s.w*S, h = s.h*S, r = s.r*S, d = s.d*S, topX = s.topX*S, w2 = s.w2*S;
+
     switch(s.type) {
-        case 'rect': return `<rect class="main-path" x="0" y="0" width="${s.w*S}" height="${s.h*S}" fill="${fill}" stroke="${stroke}" stroke-width="2" ${dash}/>`;
-        case 'triangle': return `<polygon class="main-path" points="0,0 ${s.w*S},0 ${s.topX*S},${-s.h*S}" fill="${fill}" stroke="${stroke}" stroke-width="2" ${dash}/>`;
-        case 'circle': return `<circle class="main-path" cx="${s.r*S}" cy="${s.r*S}" r="${s.r*S}" fill="${fill}" stroke="${stroke}" stroke-width="2" ${dash}/>`;
-        case 'parallelogram': return `<polygon class="main-path" points="0,0 ${s.w*S},0 ${(s.w+s.d)*S},${-s.h*S} ${s.d*S},${-s.h*S}" fill="${fill}" stroke="${stroke}" stroke-width="2" ${dash}/>`;
-        case 'text': return `<text y="20" font-size="${s.fontSize}" font-family="sans-serif">${s.text}</text>`;
-        case 'cuboid': return getCuboidPath(s, fill);
-        case 'cylinder': return getCylinderPath(s, fill);
+        // --- 2D ---
+        case 'rect': return `<rect class="main-path" x="0" y="0" width="${w}" height="${h}" fill="${fill}" stroke="${stroke}" ${lineStyle}/>`;
+        case 'triangle': return `<polygon class="main-path" points="0,0 ${w},0 ${topX},${-h}" fill="${fill}" stroke="${stroke}" ${lineStyle}/>`;
+        case 'circle': return `<circle class="main-path" cx="${r}" cy="${r}" r="${r}" fill="${fill}" stroke="${stroke}" ${lineStyle}/>`;
+        case 'parallelogram': return `<polygon class="main-path" points="0,0 ${w},0 ${w+d},${-h} ${d},${-h}" fill="${fill}" stroke="${stroke}" ${lineStyle}/>`;
+        case 'trapezoid': return `<polygon class="main-path" points="0,0 ${w},0 ${topX+w2},${-h} ${topX},${-h}" fill="${fill}" stroke="${stroke}" ${lineStyle}/>`;
+        case 'sector': 
+            const rad = s.angle * Math.PI / 180;
+            const x2 = r * Math.cos(rad), y2 = -r * Math.sin(rad);
+            const largeArc = s.angle > 180 ? 1 : 0;
+            return `<path class="main-path" d="M 0,0 L ${r},0 A ${r},${r} 0 ${largeArc},0 ${x2},${y2} Z" fill="${fill}" stroke="${stroke}" ${lineStyle}/>`;
+        case 'text': return `<text y="0" font-size="${s.fontSize}" fill="${stroke}" font-family="sans-serif">${s.text}</text>`;
+        
+        // --- 3D ---
+        case 'cuboid': return getCuboidPath(s, fill, stroke, lineStyle);
+        case 'cylinder': return getCylinderPath(s, fill, stroke, lineStyle);
+        case 'cone': 
+            return `<ellipse cx="${r}" cy="${h}" rx="${r}" ry="${r*0.3}" fill="${fill}" stroke="${stroke}" ${lineStyle}/>
+                    <path d="M 0,${h} L ${r},0 L ${r*2},${h}" fill="${fill}" stroke="${stroke}" ${lineStyle}/>`;
+        
+        // --- 展開図 ---
+        case 'net_cuboid':
+            return `
+                <g stroke="${stroke}" ${lineStyle} fill="${fill}">
+                    <rect x="${d}" y="0" width="${w}" height="${d}" />
+                    <rect x="0" y="${d}" width="${d}" height="${h}" />
+                    <rect x="${d}" y="${d}" width="${w}" height="${h}" />
+                    <rect x="${d+w}" y="${d}" width="${d}" height="${h}" />
+                    <rect x="${d}" y="${d+h}" width="${w}" height="${d}" />
+                    <rect x="${d}" y="${d*2+h}" width="${w}" height="${h}" />
+                </g>`;
+        case 'net_cylinder':
+            const cirL = 2 * Math.PI * r; // 円周
+            return `
+                <g stroke="${stroke}" ${lineStyle} fill="${fill}">
+                    <rect x="0" y="${r*2}" width="${cirL}" height="${h}" />
+                    <circle cx="${cirL/2}" cy="${r}" r="${r}" />
+                    <circle cx="${cirL/2}" cy="${r*3+h}" r="${r}" />
+                </g>`;
+
+        // --- 補助記号 ---
+        case 'rightAngle': return `<polyline points="0,${-h} ${w},${-h} ${w},0" fill="none" stroke="${stroke}" ${lineStyle}/>`;
+        case 'angleArc': 
+            const aRad = s.angle * Math.PI / 180;
+            return `<path d="M ${r},0 A ${r},${r} 0 0,0 ${r*Math.cos(aRad)},${-r*Math.sin(aRad)}" fill="none" stroke="${stroke}" ${lineStyle}/>`;
+        case 'tickMark': 
+            return `<g stroke="${stroke}" ${lineStyle}><line x1="-5" y1="-8" x2="5" y2="8" /><line x1="-1" y1="-8" x2="9" y2="8" /></g>`;
     }
 }
 
-function getCuboidPath(s, fill) {
+function getCuboidPath(s, fill, stroke, lineStyle) {
     const w = s.w*S, h = s.h*S;
     const angle = projection === 'iso' ? 30 : 45;
     const ratio = projection === 'iso' ? 1.0 : 0.5;
@@ -287,41 +426,67 @@ function getCuboidPath(s, fill) {
     const dy = -s.d * S * ratio * Math.sin(angle * Math.PI / 180);
 
     return `
-        <path d="M 0,0 L ${dx},${dy} L ${w+dx},${dy} L ${w},0 Z" fill="${fill}" stroke="black" />
-        <path d="M ${w},0 L ${w+dx},${dy} L ${w+dx},${dy+h} L ${w},${h} Z" fill="${fill}" stroke="black" />
-        <rect x="0" y="0" width="${w}" height="${h}" fill="${fill}" stroke="black" />
-        <path d="M 0,${h} L ${dx},${dy+h} L ${w+dx},${dy+h}" fill="none" stroke="black" stroke-dasharray="4,4" />
-        <path d="M ${dx},${dy} L ${dx},${dy+h}" fill="none" stroke="black" stroke-dasharray="4,4" />
+        <path d="M 0,0 L ${dx},${dy} L ${w+dx},${dy} L ${w},0 Z" fill="${fill}" stroke="${stroke}" ${lineStyle} />
+        <path d="M ${w},0 L ${w+dx},${dy} L ${w+dx},${dy+h} L ${w},${h} Z" fill="${fill}" stroke="${stroke}" ${lineStyle} />
+        <rect x="0" y="0" width="${w}" height="${h}" fill="${fill}" stroke="${stroke}" ${lineStyle} />
+        <path d="M 0,${h} L ${dx},${dy+h} L ${w+dx},${dy+h}" fill="none" stroke="${stroke}" stroke-dasharray="4,4" />
+        <path d="M ${dx},${dy} L ${dx},${dy+h}" fill="none" stroke="${stroke}" stroke-dasharray="4,4" />
     `;
 }
 
-function getCylinderPath(s, fill) {
+function getCylinderPath(s, fill, stroke, lineStyle) {
     const r = s.r*S, h = s.h*S, ry = r*0.3;
     return `
-        <ellipse cx="${r}" cy="0" rx="${r}" ry="${ry}" fill="${fill}" stroke="black" />
+        <ellipse cx="${r}" cy="0" rx="${r}" ry="${ry}" fill="${fill}" stroke="${stroke}" ${lineStyle} />
         <path d="M 0,0 L 0,${h} A ${r} ${ry} 0 0 0 ${r*2},${h} L ${r*2},0" fill="${fill}" stroke="none" />
-        <path d="M 0,0 L 0,${h} M ${r*2},0 L ${r*2},${h}" stroke="black" />
-        <path d="M 0,${h} A ${r} ${ry} 0 0 0 ${r*2},${h}" fill="none" stroke="black" />
-        <path d="M 0,${h} A ${r} ${ry} 0 0 1 ${r*2},${h}" fill="none" stroke="black" stroke-dasharray="4,4" />
+        <path d="M 0,0 L 0,${h} M ${r*2},0 L ${r*2},${h}" stroke="${stroke}" ${lineStyle} />
+        <path d="M 0,${h} A ${r} ${ry} 0 0 0 ${r*2},${h}" fill="none" stroke="${stroke}" ${lineStyle} />
+        <path d="M 0,${h} A ${r} ${ry} 0 0 1 ${r*2},${h}" fill="none" stroke="${stroke}" stroke-dasharray="4,4" />
     `;
 }
 
+// --- ハンドル描画と操作 ---
 function renderHandles(s) {
     const handles = [];
-    if(s.type === 'rect' || s.type === 'cuboid') handles.push({x: s.w*S, y: s.h*S, p: 'size'});
-    if(s.type === 'triangle') { handles.push({x: s.w*S, y: 0, p: 'w'}); handles.push({x: s.topX*S, y: -s.h*S, p: 'top'}); }
-    if(s.type === 'circle') handles.push({x: s.r*2*S, y: s.r*S, p: 'r'});
+    const w = s.w*S, h = s.h*S, r = s.r*S;
+
+    // サイズ調整ハンドル
+    if(['rect', 'cuboid', 'parallelogram', 'rightAngle'].includes(s.type)) handles.push({x: w, y: h, p: 'size'});
+    if(s.type === 'triangle' || s.type === 'trapezoid') { handles.push({x: w, y: 0, p: 'w'}); handles.push({x: s.topX*S, y: -h, p: 'top'}); }
+    if(s.type === 'circle' || s.type === 'angleArc') handles.push({x: r*2, y: r, p: 'r'});
+    if(s.type === 'net_cuboid') handles.push({x: s.d*S+w, y: s.d*S+h, p: 'size'});
 
     handles.forEach(h => {
         const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-        circle.setAttribute('cx', h.x); circle.setAttribute('cy', h.y); circle.setAttribute('r', 6);
+        circle.setAttribute('cx', h.x); circle.setAttribute('cy', h.y); circle.setAttribute('r', 5);
         circle.setAttribute('class', 'handle');
         circle.setAttribute('transform', `translate(${s.x},${s.y}) rotate(${s.rot})`);
         circle.onmousedown = (e) => { e.stopPropagation(); dragMode = 'handle'; activeHandle = h.p; };
         uiLayer.appendChild(circle);
     });
+
+    // 回転ハンドル（全図形共通：図形の上部）
+    let cx = 0, cy = 0;
+    if (['rect', 'parallelogram', 'trapezoid', 'triangle'].includes(s.type)) { cx = w/2; cy = -h/2; }
+    else if (['circle', 'cylinder', 'cone'].includes(s.type)) { cx = r; cy = 0; }
+    else if (s.type === 'text') { cx = s.text.length*5; cy = -20; }
+    
+    const rotLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    rotLine.setAttribute('x1', cx); rotLine.setAttribute('y1', cy); rotLine.setAttribute('x2', cx); rotLine.setAttribute('y2', cy - 30);
+    rotLine.setAttribute('stroke', 'var(--accent)'); rotLine.setAttribute('stroke-dasharray', '2,2');
+    rotLine.setAttribute('transform', `translate(${s.x},${s.y}) rotate(${s.rot})`);
+    
+    const rotCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    rotCircle.setAttribute('cx', cx); rotCircle.setAttribute('cy', cy - 30); rotCircle.setAttribute('r', 6);
+    rotCircle.setAttribute('class', 'handle rot-handle');
+    rotCircle.setAttribute('transform', `translate(${s.x},${s.y}) rotate(${s.rot})`);
+    rotCircle.onmousedown = (e) => { e.stopPropagation(); dragMode = 'rotate'; dragStart = {cx: s.x + cx, cy: s.y + cy}; };
+    
+    uiLayer.appendChild(rotLine);
+    uiLayer.appendChild(rotCircle);
 }
 
+// --- マウス・ドラッグ操作 ---
 workspace.onmousedown = (e) => {
     const pos = getMousePos(e);
     dragStart = pos;
@@ -331,8 +496,16 @@ workspace.onmousedown = (e) => {
     if (targetGroup) {
         const id = targetGroup.getAttribute('data-id');
         if (!e.shiftKey && !selectedIds.includes(id)) { selectedIds = [id]; } 
-        else if (e.shiftKey) { selectedIds.includes(id) ? selectedIds.splice(selectedIds.indexOf(id), 1) : selectedIds.push(id); }
-        dragMode = 'move';
+        else if (e.shiftKey && dragMode !== 'rotate') { 
+            selectedIds.includes(id) ? selectedIds.splice(selectedIds.indexOf(id), 1) : selectedIds.push(id); 
+        }
+        if(dragMode === 'none') dragMode = 'move';
+        
+        // ドラッグ開始前の状態を保存
+        originalStates = selectedIds.map(sid => {
+            const sh = shapes.find(x => x.id === sid);
+            return { id: sid, x: sh.x, y: sh.y, rot: sh.rot, w: sh.w, h: sh.h, r: sh.r, topX: sh.topX };
+        });
     } else {
         selectedIds = [];
         dragMode = 'select';
@@ -346,16 +519,34 @@ workspace.onmousedown = (e) => {
 window.onmousemove = (e) => {
     if (!isMouseDown) return;
     const pos = getMousePos(e);
-    const dx = pos.x - dragStart.x;
-    const dy = pos.y - dragStart.y;
+    let dx = pos.x - dragStart.x;
+    let dy = pos.y - dragStart.y;
 
     if (dragMode === 'move') {
+        // Shiftキーで移動方向の制限 (水平 or 垂直)
+        if (e.shiftKey) {
+            if (Math.abs(dx) > Math.abs(dy)) dy = 0; else dx = 0;
+        }
+
         selectedIds.forEach(id => {
             const s = shapes.find(x => x.id === id);
-            s.x = Math.round((s.x + dx) / SNAP) * SNAP;
-            s.y = Math.round((s.y + dy) / SNAP) * SNAP;
+            const orig = originalStates.find(x => x.id === id);
+            let nx = orig.x + dx;
+            let ny = orig.y + dy;
+            
+            if (snapEnabled) {
+                nx = Math.round(nx / SNAP) * SNAP;
+                ny = Math.round(ny / SNAP) * SNAP;
+            }
+            s.x = nx; s.y = ny;
         });
-        dragStart = pos;
+    } else if (dragMode === 'rotate') {
+        const s = shapes.find(x => x.id === selectedIds[0]);
+        // ドラッグ開始時に記録した図形中心(dragStart.cx, cy)からの角度を計算
+        const angle = Math.atan2(pos.y - dragStart.cy, pos.x - dragStart.cx) * 180 / Math.PI;
+        // マウス位置が上(12時)の時が0度になるように調整
+        let newRot = Math.round((angle + 90) / 15) * 15; // 15度ずつスナップ
+        s.rot = newRot;
     } else if (dragMode === 'select') {
         const x = Math.min(pos.x, dragStart.x); const y = Math.min(pos.y, dragStart.y);
         const w = Math.abs(pos.x - dragStart.x); const h = Math.abs(pos.y - dragStart.y);
@@ -364,16 +555,26 @@ window.onmousemove = (e) => {
         selectedIds = shapes.filter(s => s.x > x && s.x < x+w && s.y > y && s.y < y+h).map(s => s.id);
     } else if (dragMode === 'handle') {
         const s = shapes.find(x => x.id === selectedIds[0]);
-        if(activeHandle === 'size') { s.w = Math.max(0.5, s.w + dx/S); s.h = Math.max(0.5, s.h + dy/S); }
-        if(activeHandle === 'w') s.w = Math.max(0.5, s.w + dx/S);
-        if(activeHandle === 'top') { s.topX += dx/S; s.h -= dy/S; }
-        if(activeHandle === 'r') s.r = Math.max(0.2, s.r + dx/S/2);
-        dragStart = pos;
+        const orig = originalStates[0];
+        
+        // ハンドル移動量（スナップ適用）
+        if (snapEnabled) {
+            dx = Math.round(dx / SNAP) * SNAP;
+            dy = Math.round(dy / SNAP) * SNAP;
+        }
+
+        if(activeHandle === 'size') { s.w = Math.max(0.5, orig.w + dx/S); s.h = Math.max(0.5, orig.h + dy/S); }
+        if(activeHandle === 'w') s.w = Math.max(0.5, orig.w + dx/S);
+        if(activeHandle === 'top') { s.topX = orig.topX + dx/S; s.h = Math.max(0.5, orig.h - dy/S); }
+        if(activeHandle === 'r') s.r = Math.max(0.2, orig.r + dx/S/2);
     }
     render();
 };
 
 window.onmouseup = () => {
+    if (isMouseDown && dragMode !== 'select' && dragMode !== 'none') {
+        saveState(); // 移動や変形の完了時に履歴保存
+    }
     isMouseDown = false; dragMode = 'none';
     if (selectionRect) { selectionRect.remove(); selectionRect = null; }
     render();
@@ -384,80 +585,69 @@ function getMousePos(e) {
     return { x: e.clientX - rect.left, y: e.clientY - rect.top };
 }
 
-// --------------------------------------------------------
-// ✨ ショートカットキーの実装 (Ctrl+C, Ctrl+V, Delete)
-// --------------------------------------------------------
+// --- キーボードショートカット ---
 window.addEventListener('keydown', (e) => {
-    // 入力欄（input, select, textarea）にフォーカスがある時は無効にする
     const activeTag = document.activeElement.tagName.toLowerCase();
-    if (activeTag === 'input' || activeTag === 'select' || activeTag === 'textarea') {
-        return;
-    }
+    if (activeTag === 'input' || activeTag === 'select' || activeTag === 'textarea') return;
 
-    const isCtrl = e.ctrlKey || e.metaKey; // Windows(Ctrl) or Mac(Command)
+    const isCtrl = e.ctrlKey || e.metaKey;
 
-    // Ctrl + C (コピー)
-    if (isCtrl && (e.key === 'c' || e.key === 'C')) {
-        if (selectedIds.length > 0) {
-            // 選択されている図形のデータをディープコピーして保持
-            clipboard = shapes.filter(s => selectedIds.includes(s.id)).map(s => JSON.parse(JSON.stringify(s)));
-        }
+    if (isCtrl && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); undo(); }
+    else if (isCtrl && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); redo(); }
+    else if (isCtrl && (e.key === 'c' || e.key === 'C')) {
+        if (selectedIds.length > 0) clipboard = shapes.filter(s => selectedIds.includes(s.id)).map(s => JSON.parse(JSON.stringify(s)));
     }
-    // Ctrl + V (ペースト)
     else if (isCtrl && (e.key === 'v' || e.key === 'V')) {
         if (clipboard.length > 0) {
             const newSelectedIds = [];
             clipboard.forEach(copiedShape => {
                 const newShape = JSON.parse(JSON.stringify(copiedShape));
                 newShape.id = 's' + (shapeCounter++);
-                newShape.x += 20; // 少し右下にズラして配置
-                newShape.y += 20;
+                newShape.x += SNAP; newShape.y += SNAP;
                 shapes.push(newShape);
                 newSelectedIds.push(newShape.id);
             });
-            // ペーストした図形を自動的に選択状態にする
             selectedIds = newSelectedIds;
+            saveState();
             render();
         }
     }
-    // Delete または Backspace (削除)
     else if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (selectedIds.length > 0) {
-            shapes = shapes.filter(s => !selectedIds.includes(s.id));
-            selectedIds = [];
-            render();
-        }
+        deleteSelected();
     }
 });
 
-function addLengthLabels() {
-    selectedIds.forEach(id => {
-        const s = shapes.find(x => x.id === id);
-        if(s.type === 'rect') {
-            createLabel(s.x + (s.w*S)/2, s.y - 10, `${s.w.toFixed(1)}cm`);
-            createLabel(s.x - 35, s.y + (s.h*S)/2, `${s.h.toFixed(1)}cm`);
-        } else if(s.type === 'triangle') {
-            createLabel(s.x + (s.w*S)/2, s.y + 20, `${s.w.toFixed(1)}cm`);
-            const leftLen = Math.sqrt(s.topX**2 + s.h**2).toFixed(1);
-            createLabel(s.x + (s.topX*S)/2 - 30, s.y - (s.h*S)/2, `${leftLen}cm`);
-        }
-    });
-    render();
+function deleteSelected() {
+    if (selectedIds.length > 0) {
+        shapes = shapes.filter(s => !selectedIds.includes(s.id));
+        selectedIds = [];
+        saveState();
+        render();
+    }
 }
 
-function createLabel(x, y, text) {
-    shapes.push({ id: 's'+(shapeCounter++), type: 'text', x, y, text, fontSize: 16, rot: 0 });
-}
-
+// --- プロパティパネル ---
 function renderPropertyEditor() {
     const container = document.getElementById('prop-controls');
     container.innerHTML = '';
     if(selectedIds.length !== 1) return;
     
     const s = shapes.find(x => x.id === selectedIds[0]);
-    const fields = [ { label: '回転', key: 'rot', type: 'number' }, { label: '塗り', key: 'fill', type: 'select', options: ['none', 'white', '#eee', 'hatch'] } ];
-    if(s.type === 'rect' || s.type === 'cuboid' || s.type === 'parallelogram') { fields.push({ label: '幅(cm)', key: 'w', type: 'number' }); fields.push({ label: '高さ(cm)', key: 'h', type: 'number' }); }
-    if(s.type === 'triangle') { fields.push({ label: '底辺(cm)', key: 'w', type: 'number' }); fields.push({ label: '高さ(cm)', key: 'h', type: 'number' }); fields.push({ label: '頂点位置', key: 'topX', type: 'number' }); }
+    
+    // 共通スタイルプロパティ
+    const fields = [ 
+        { label: '回転', key: 'rot', type: 'number' },
+        { label: '線種', key: 'lineType', type: 'select', options: ['solid', 'dashed', 'dotted'], labels: ['実線', '破線', '点線'] },
+        { label: '太さ', key: 'strokeWidth', type: 'select', options: [1, 2, 4], labels: ['細い', '普通', '太い'] },
+        { label: '塗り', key: 'fill', type: 'select', options: ['none', 'white', '#eee', 'hatch'], labels: ['透明', '白', 'グレー', '斜線'] }
+    ];
+
+    // 図形ごとの専用プロパティ
+    if(['rect', 'cuboid', 'parallelogram', 'rightAngle', 'net_cuboid'].includes(s.type)) { fields.push({ label: '幅', key: 'w', type: 'number' }); fields.push({ label: '高さ', key: 'h', type: 'number' }); }
+    if(s.type === 'triangle') { fields.push({ label: '底辺', key: 'w', type: 'number' }); fields.push({ label: '高さ', key: 'h', type: 'number' }); fields.push({ label: '頂点', key: 'topX', type: 'number' }); }
+    if(s.type === 'trapezoid') { fields.push({ label: '下底', key: 'w', type: 'number' }); fields.push({ label: '上底', key: 'w2', type: 'number' }); fields.push({ label: '高さ', key: 'h', type: 'number' }); fields.push({ label: '頂点', key: 'topX', type: 'number' }); }
+    if(['circle', 'cylinder', 'cone', 'net_cylinder'].includes(s.type)) { fields.push({ label: '半径', key: 'r', type: 'number' }); }
+    if(s.type === 'sector' || s.type === 'angleArc') { fields.push({ label: '半径', key: 'r', type: 'number' }); fields.push({ label: '角度', key: 'angle', type: 'number' }); }
     if(s.type === 'text') { fields.push({ label: '内容', key: 'text', type: 'text' }); fields.push({ label: 'サイズ', key: 'fontSize', type: 'number' }); }
 
     fields.forEach(f => {
@@ -467,21 +657,53 @@ function renderPropertyEditor() {
         let input;
         if(f.type === 'select') {
             input = document.createElement('select');
-            f.options.forEach(o => { const opt = document.createElement('option'); opt.value = o; opt.textContent = o === 'hatch' ? '斜線' : (o === 'none' ? '透明' : o); if(s[f.key] === o) opt.selected = true; input.appendChild(opt); });
+            f.options.forEach((o, i) => { 
+                const opt = document.createElement('option'); 
+                opt.value = o; opt.textContent = f.labels ? f.labels[i] : o; 
+                if(s[f.key] == o) opt.selected = true; 
+                input.appendChild(opt); 
+            });
         } else {
-            input = document.createElement('input'); input.type = f.type; input.value = s[f.key];
+            input = document.createElement('input'); 
+            input.type = f.type; input.value = s[f.key];
+            if (f.type === 'number') input.step = "0.5";
         }
-        input.oninput = (e) => { s[f.key] = f.type === 'number' ? parseFloat(e.target.value) : e.target.value; render(); };
+        input.onchange = (e) => { 
+            s[f.key] = f.type === 'number' ? parseFloat(e.target.value) : e.target.value; 
+            saveState(); // 値変更時に保存
+            render(); 
+        };
         div.appendChild(input); container.appendChild(div);
     });
 }
 
+function addLengthLabels() {
+    selectedIds.forEach(id => {
+        const s = shapes.find(x => x.id === id);
+        if(s.type === 'rect') {
+            shapes.push({ id: 's'+(shapeCounter++), type: 'text', x: s.x + (s.w*S)/2 - 10, y: s.y - 5, text: `${s.w}cm`, fontSize: 16, rot: 0 });
+            shapes.push({ id: 's'+(shapeCounter++), type: 'text', x: s.x - 35, y: s.y + (s.h*S)/2, text: `${s.h}cm`, fontSize: 16, rot: 0 });
+        }
+    });
+    saveState();
+    render();
+}
+
 function exportSVG() {
+    // 選択枠やハンドルなどを一時的に隠して書き出す
+    const ui = uiLayer.innerHTML;
+    uiLayer.innerHTML = '';
+    workspace.classList.remove('grid-enabled');
+    
     const svgData = workspace.outerHTML;
     const blob = new Blob([svgData], {type: "image/svg+xml;charset=utf-8"});
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url; link.download = "math_print.svg"; link.click();
+    
+    // 元に戻す
+    uiLayer.innerHTML = ui;
+    if(snapEnabled) workspace.classList.add('grid-enabled');
 }
 
 render();
