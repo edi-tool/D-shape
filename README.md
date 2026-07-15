@@ -46,3 +46,7 @@ WordやExcelの標準機能では微調整が難しい「正確な図形」や�
 
 ## 🌐 公開先 (GitHub Pages)
 （※ここにGitHub Pagesの公開URLを記載します: `https://[ユーザー名].github.io/[リポジトリ名]/`）
+
+## ライセンス
+
+MIT License © 2026 ISHIKAWA, Natsuki
