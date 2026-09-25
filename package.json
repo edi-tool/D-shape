@@ -1,0 +1,16 @@
+{
+  "name": "d-shape",
+  "private": true,
+  "description": "算数プリント用の図形を SVG で作成するブラウザツール",
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "check": "node scripts/check-static.mjs"
+  },
+  "checkStatic": {
+    "//": "マウス操作前提の PC 向けツールで Web 未公開のため、viewport の欠落は警告にとどめる",
+    "ignore": ["viewport"]
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
