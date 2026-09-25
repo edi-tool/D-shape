@@ -359,6 +359,11 @@ function render() {
     renderPropertyEditor();
 }
 
+// テキスト図形の文字列を SVG に入れる前にエスケープする（「<」「&」で SVG が壊れないように）
+function escapeXML(str) {
+    return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
 function getShapePath(s) {
     const stroke = s.color || "#000";
     const fill = s.fill === 'hatch' ? 'url(#hatch)' : (s.fill === 'none' ? 'none' : s.fill);
@@ -379,7 +384,7 @@ function getShapePath(s) {
             const x2 = r * Math.cos(rad), y2 = -r * Math.sin(rad);
             const largeArc = s.angle > 180 ? 1 : 0;
             return `<path class="main-path" d="M 0,0 L ${r},0 A ${r},${r} 0 ${largeArc},0 ${x2},${y2} Z" fill="${fill}" stroke="${stroke}" ${lineStyle}/>`;
-        case 'text': return `<text y="0" font-size="${s.fontSize}" fill="${stroke}" font-family="sans-serif">${s.text}</text>`;
+        case 'text': return `<text y="0" font-size="${s.fontSize}" fill="${stroke}" font-family="sans-serif">${escapeXML(s.text)}</text>`;
         
         // --- 3D ---
         case 'cuboid': return getCuboidPath(s, fill, stroke, lineStyle);

@@ -7,7 +7,7 @@ function app(projection = 'cabinet') {
   const ctx = { S: 40, projection, shapes: [], selectedIds: [], history: [], historyIndex: -1, renders: 0 };
   ctx.render = () => ctx.renders++; // render は DOM を触るので回数だけ数える
   const api = load({
-    functions: ['getStrokeStyle', 'getShapePath', 'getCuboidPath', 'getCylinderPath', 'saveState', 'undo', 'redo'],
+    functions: ['escapeXML', 'getStrokeStyle', 'getShapePath', 'getCuboidPath', 'getCylinderPath', 'saveState', 'undo', 'redo'],
     globals: ctx,
   });
   return { ...api, ctx };
@@ -59,4 +59,10 @@ test('元に戻す・やり直しで図形の状態を行き来できる', () =>
 
 test('外部送信するコードがない', () => {
   assert.doesNotMatch(read('index.html'), /\bfetch\(|sendBeacon|XMLHttpRequest|WebSocket/);
+});
+
+test('テキスト図形の「<」「&」はエスケープして SVG を壊さない', () => {
+  const { getShapePath } = app();
+  const svg = getShapePath({ type: 'text', text: 'a<b & c', fontSize: 16 });
+  assert.match(svg, />a&lt;b &amp; c<\/text>/);
 });
