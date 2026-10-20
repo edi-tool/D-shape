@@ -2,6 +2,17 @@
 
 小学校の先生や塾講師が、算数のプリントやテスト用の図形問題をブラウザ上で素早く作成し、ベクターデータ（SVG）としてダウンロードできる専用作図ツールです。
 
+> [!IMPORTANT]
+> **このリポジトリは開発を終了しました（アーカイブ予定）。**
+> 主な機能（長方形・平行四辺形・台形・円・おうぎ形、直方体・円柱・円錐の見取り図、
+> 直方体・円柱の展開図、直角記号・角度・等長記号、長さの表示、斜線の塗り、SVG 保存）は
+> **[図形作成さん（edi-tool/zukei-drafter）](https://github.com/edi-tool/zukei-drafter)** に移しました。
+> Web 版: https://edi-tool.github.io/zukei-drafter/
+>
+> 図形作成さんは数値入力で図形を作るツールです。D-shape にあったドラッグでの自由配置・
+> 複数図形の配置・テキスト追加・undo/redo は引き継いでいません。
+> 対応表は zukei-drafter の [REQUIREMENTS.md](https://github.com/edi-tool/zukei-drafter/blob/main/REQUIREMENTS.md) を参照してください。
+
 > **公開状況:** 現在はリポジトリのみの公開で、GitHub Pages でのWeb公開はしていません。
 > ローカルで `index.html` を開くか、簡易サーバー（`python -m http.server 8000`）で利用してください。
 
